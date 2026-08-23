@@ -1,0 +1,39 @@
+# --- Secrets / environment ---
+.env
+.env.local
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.pyo
+venv/
+.venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# --- Databases (local/test only - not the deployed Supabase DB) ---
+*.db
+*.sqlite3
+
+# --- Node / frontend ---
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# --- Runtime-generated capture/ML output (regenerated on every run) ---
+data/raw_packets.csv
+data/flow_features.csv
+
+# --- Logs ---
+*.log
+test_results.log
+
+# --- Editor / OS ---
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+*.swp

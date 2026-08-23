@@ -12,7 +12,7 @@ def _auth_headers(client):
         session.add(user)
         session.commit()
     session.close()
-    token = client.post("/login", json={"email": "incident-admin@example.com", "password": "Password123!"}).json()["access_token"]
+    token = client.post("/auth/login", json={"email": "incident-admin@example.com", "password": "Password123!"}).json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
 
 

@@ -13,7 +13,7 @@ def test_login_returns_token(test_client):
         session.commit()
     session.close()
 
-    response = test_client.post("/login", json={"email": "tester@example.com", "password": "Password123!"})
+    response = test_client.post("/auth/login", json={"email": "tester@example.com", "password": "Password123!"})
     assert response.status_code == 200
     body = response.json()
     assert body["token_type"] == "bearer"

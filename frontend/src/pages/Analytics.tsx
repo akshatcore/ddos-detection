@@ -1,4 +1,3 @@
-import "../styles/Analytics.css";
 import { useState, useEffect } from "react";
 import {
   BarChart,
@@ -13,18 +12,24 @@ import {
   Cell,
   Legend,
 } from "recharts";
+import { FiCpu, FiTarget, FiTrendingUp, FiAlertTriangle, FiBarChart2, FiPieChart } from "react-icons/fi";
 
 import { getIncidents, type Incident } from "../services/incidents";
 import { getModels, type ModelVersion } from "../services/models";
+import { StatCard } from "../components/StatCard";
+import { SemiGauge } from "../components/Gauge";
+import { Badge } from "../components/Badge";
+import { extractAttackType } from "../utils/attackData";
+import { timeAgo } from "../utils/time";
 
 const SEVERITY_COLORS: Record<string, string> = {
-  low: "#22c55e",
-  medium: "#f59e0b",
-  high: "#ef4444",
-  critical: "#7c3aed",
+  low: "#05cd99",
+  medium: "#ffb547",
+  high: "#ff8a5c",
+  critical: "#ef4444",
 };
 
-const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function buildWeeklyTrend(incidents: Incident[]) {
   const counts = new Array(7).fill(0);
@@ -63,18 +68,23 @@ function Analytics() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    async function loadData() {
+    async function loadData(isFirstLoad: boolean) {
       try {
         const [incidentsData, modelsData] = await Promise.all([getIncidents(), getModels()]);
         setIncidents(incidentsData);
         setActiveModel(modelsData.find((m) => m.is_active) || modelsData[0] || null);
+        setError(null);
       } catch (err) {
-        setError("Failed to load analytics data from the backend.");
+        if (isFirstLoad) setError("Failed to load analytics data from the backend.");
       } finally {
-        setLoading(false);
+        if (isFirstLoad) setLoading(false);
       }
     }
-    loadData();
+    loadData(true);
+    // Live-refresh every 3s so new incidents show up automatically without
+    // a manual page reload - handy while an attack demo is in progress.
+    const intervalId = setInterval(() => loadData(false), 3000);
+    return () => clearInterval(intervalId);
   }, []);
 
   const weeklyData = buildWeeklyTrend(incidents);
@@ -85,91 +95,191 @@ function Analytics() {
   // (e.g. accuracy/precision/recall saved alongside the trained model) -
   // these are real numbers from the actual model, not invented placeholders.
   const metrics = (activeModel?.metrics || {}) as Record<string, number | string>;
+  const rawAccuracy = Number(metrics.test_accuracy ?? metrics.accuracy ?? 0);
+  const accuracyPct = rawAccuracy > 0 ? (rawAccuracy <= 1 ? rawAccuracy * 100 : rawAccuracy) : 0;
+  const rawRecall = Number(metrics.test_recall ?? metrics.recall ?? 0);
+  const recallPct = rawRecall > 0 ? (rawRecall <= 1 ? rawRecall * 100 : rawRecall) : 0;
 
   return (
-    <div className="analytics">
-      <h1>📊 Analytics Dashboard</h1>
-
-      {loading && <p>Loading analytics from backend...</p>}
-      {error && <p style={{ color: "red" }}>{error}</p>}
+    <div>
+      {error && <div className="banner-error">{error}</div>}
+      {loading && <p style={{ color: "var(--text-secondary)" }}>Loading analytics from backend...</p>}
 
       {!loading && !error && (
         <>
-          <div className="analytics-cards">
-            <div className="analytics-card">
-              <h3>Active Model</h3>
-              <p>{activeModel ? `${activeModel.name} (${activeModel.version})` : "None registered"}</p>
-            </div>
-            <div className="analytics-card">
-              <h3>Model Accuracy</h3>
-              <p>{metrics.test_accuracy ?? metrics.accuracy ?? "N/A"}</p>
-            </div>
-            <div className="analytics-card">
-              <h3>Model Recall</h3>
-              <p>{metrics.test_recall ?? metrics.recall ?? "N/A"}</p>
-            </div>
-            <div className="analytics-card">
-              <h3>Total Incidents Logged</h3>
-              <p>{incidents.length}</p>
-            </div>
+          <div className="stat-grid">
+            <StatCard
+              label="Active Model"
+              value={activeModel ? `${activeModel.name}` : "None"}
+              icon={<FiCpu />}
+              iconClass="icon-purple"
+              delta={activeModel ? `v${activeModel.version}` : undefined}
+            />
+            <StatCard
+              label="Model Accuracy"
+              value={accuracyPct ? `${accuracyPct.toFixed(1)}%` : "N/A"}
+              icon={<FiTarget />}
+              iconClass="icon-blue"
+            />
+            <StatCard
+              label="Model Recall"
+              value={recallPct ? `${recallPct.toFixed(1)}%` : "N/A"}
+              icon={<FiTrendingUp />}
+              iconClass="icon-green"
+            />
+            <StatCard
+              label="Total Incidents Logged"
+              value={incidents.length}
+              icon={<FiAlertTriangle />}
+              iconClass="icon-red"
+            />
           </div>
 
-          <div className="chart">
-            <h2>📈 Weekly Incident Trend</h2>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={weeklyData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="day" />
-                <YAxis allowDecimals={false} />
-                <Tooltip />
-                <Bar dataKey="incidents" fill="#ef4444" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-
-          <div className="chart">
-            <h2>🥧 Incidents by Severity</h2>
-            {severityData.length === 0 ? (
-              <p>No incident data yet to plot.</p>
-            ) : (
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie data={severityData} dataKey="value" nameKey="name" outerRadius={100} label>
-                    {severityData.map((item, index) => (
-                      <Cell key={index} fill={item.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend />
-                </PieChart>
+          <div className="card-grid-2">
+            <div className="glass-card">
+              <div className="card-title">
+                <h2 style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <FiBarChart2 /> Weekly Incident Trend
+                </h2>
+              </div>
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={weeklyData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--divider)" />
+                  <XAxis dataKey="day" stroke="var(--text-muted)" fontSize={11} />
+                  <YAxis allowDecimals={false} stroke="var(--text-muted)" fontSize={11} />
+                  <Tooltip
+                    contentStyle={{
+                      background: "var(--card-bg-solid)",
+                      border: "1px solid var(--card-border)",
+                      borderRadius: 10,
+                      color: "var(--text-primary)",
+                    }}
+                  />
+                  <Bar dataKey="incidents" fill="var(--accent-red)" radius={[6, 6, 0, 0]} />
+                </BarChart>
               </ResponsiveContainer>
-            )}
+            </div>
+
+            <div className="glass-card" style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+              <div className="card-title" style={{ width: "100%" }}>
+                <h2>Model Accuracy</h2>
+              </div>
+              <SemiGauge value={accuracyPct} color="var(--accent-blue)" label="Test accuracy" />
+              <div className="gauge-scale" style={{ width: 170 }}>
+                <span>0%</span>
+                <span>100%</span>
+              </div>
+            </div>
           </div>
 
-          <div className="ip-box">
-            <h2>Incidents by Status</h2>
-            <table>
-              <thead>
-                <tr>
-                  <th>Status</th>
-                  <th>Count</th>
-                </tr>
-              </thead>
-              <tbody>
-                {statusBreakdown.length === 0 ? (
-                  <tr>
-                    <td colSpan={2}>No incidents recorded yet.</td>
-                  </tr>
-                ) : (
-                  statusBreakdown.map(([status, count]) => (
-                    <tr key={status}>
-                      <td>{status}</td>
-                      <td>{count}</td>
+          <div className="card-grid-2">
+            <div className="glass-card">
+              <div className="card-title">
+                <h2 style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <FiPieChart /> Incidents by Severity
+                </h2>
+              </div>
+              {severityData.length === 0 ? (
+                <p style={{ color: "var(--text-muted)" }}>No incident data yet to plot.</p>
+              ) : (
+                <ResponsiveContainer width="100%" height={280}>
+                  <PieChart>
+                    <Pie data={severityData} dataKey="value" nameKey="name" outerRadius={95} label>
+                      {severityData.map((item, index) => (
+                        <Cell key={index} fill={item.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{
+                        background: "var(--card-bg-solid)",
+                        border: "1px solid var(--card-border)",
+                        borderRadius: 10,
+                        color: "var(--text-primary)",
+                      }}
+                    />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+
+            <div className="glass-card">
+              <div className="card-title">
+                <h2>Incidents by Status</h2>
+              </div>
+              <div className="data-table-wrap">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Status</th>
+                      <th>Count</th>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  </thead>
+                  <tbody>
+                    {statusBreakdown.length === 0 ? (
+                      <tr>
+                        <td colSpan={2}>No incidents recorded yet.</td>
+                      </tr>
+                    ) : (
+                      statusBreakdown.map(([status, count]) => (
+                        <tr key={status}>
+                          <td style={{ textTransform: "capitalize" }}>{status}</td>
+                          <td>{count}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div className="glass-card">
+            <div className="card-title">
+              <h2>Attack Details</h2>
+              <span className="hint">Real source/destination IP and flow data behind each triggered alert</span>
+            </div>
+            <div className="data-table-wrap">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Time</th>
+                    <th>Source IP</th>
+                    <th>Destination IP</th>
+                    <th>Protocol</th>
+                    <th>Attack Type</th>
+                    <th>Confidence</th>
+                    <th>Packet Rate</th>
+                    <th>Severity</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {incidents.filter((i) => i.flow).length === 0 ? (
+                    <tr>
+                      <td colSpan={8}>No attack flow data recorded yet.</td>
+                    </tr>
+                  ) : (
+                    incidents
+                      .filter((i) => i.flow)
+                      .slice(0, 12)
+                      .map((item) => (
+                        <tr key={item.id}>
+                          <td>{timeAgo(item.created_at)}</td>
+                          <td className="mono-text">{item.flow!.src_ip}</td>
+                          <td className="mono-text">{item.flow!.dst_ip}</td>
+                          <td>{item.flow!.protocol}</td>
+                          <td style={{ textTransform: "capitalize" }}>{extractAttackType(item.title)}</td>
+                          <td>{item.prediction ? `${(item.prediction.confidence * 100).toFixed(1)}%` : "N/A"}</td>
+                          <td>{item.flow!.packet_rate.toFixed(0)} pkt/s</td>
+                          <td>
+                            <Badge text={item.severity} />
+                          </td>
+                        </tr>
+                      ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </>
       )}

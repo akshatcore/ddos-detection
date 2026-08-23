@@ -8,6 +8,8 @@ import Reports from "./pages/Reports";
 import Incidents from "./pages/Incidents";
 import ThreatHunting from "./pages/ThreatHunting";
 import Settings from "./pages/Settings";
+import { Layout } from "./components/Layout";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { isAuthenticated } from "./services/auth";
 
 function App() {
@@ -16,20 +18,24 @@ function App() {
   const [loggedIn, setLoggedIn] = useState(isAuthenticated());
 
   return (
-    <BrowserRouter>
-      {loggedIn ? (
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/analytics" element={<Analytics />} />
-          <Route path="/reports" element={<Reports />} />
-          <Route path="/incidents" element={<Incidents />} />
-          <Route path="/threat-hunting" element={<ThreatHunting />} />
-          <Route path="/settings" element={<Settings />} />
-        </Routes>
-      ) : (
-        <Log onLogin={() => setLoggedIn(true)} />
-      )}
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        {loggedIn ? (
+          <Routes>
+            <Route element={<Layout onLogout={() => setLoggedIn(false)} />}>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/analytics" element={<Analytics />} />
+              <Route path="/reports" element={<Reports />} />
+              <Route path="/incidents" element={<Incidents />} />
+              <Route path="/threat-hunting" element={<ThreatHunting />} />
+              <Route path="/settings" element={<Settings />} />
+            </Route>
+          </Routes>
+        ) : (
+          <Log onLogin={() => setLoggedIn(true)} />
+        )}
+      </BrowserRouter>
+    </ErrorBoundary>
   );
 }
 

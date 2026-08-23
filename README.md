@@ -59,15 +59,44 @@ If `live_capture.py` prints packets, your lab network is wired correctly. Move t
 cd ml
 python3 train_baseline.py
 ```
+A trained bundle already ships in `models/random_forest_v1.0.joblib` (see
+`models/random_forest_v1.0_metadata.json` for its test metrics), so you can
+skip straight to Step 4 unless you want to retrain.
+
+## Step 4 — Extract features and score them
+```bash
+cd feature_extraction
+python3 build_features.py          # raw_packets.csv -> flow_features.csv
+
+cd ../ml
+python3 detect_live.py             # scores flow_features.csv, prints alerts to console
+```
+> Note: `build_features.py` previously produced a different feature set
+> (packet_count, syn_ratio, ...) than the model was trained on (Flow Duration,
+> Total Fwd Packets, ...), so `detect_live.py` failed with a "missing
+> required columns" error. It now computes the same 11 CICFlowMeter-style
+> columns the model expects, per bidirectional flow, per 5-second window.
+
+## Step 5 — Push detections into the backend/dashboard automatically
+```bash
+# with the backend running (uvicorn backend.app.main:app --reload)
+cd ml
+python3 pipeline.py --backend-url http://localhost:8000
+```
+`pipeline.py` scores `flow_features.csv` and POSTs each flow + prediction to
+`POST /alerts/evaluate`. The backend's `AlertEngine` decides whether to open
+an Incident, which then shows up immediately on the React dashboard
+(Incidents / Threat Hunting pages) — this is what actually closes the loop
+described in "Build Order" above.
 
 ## Repo Structure
 ```
 ddos-detection/
 ├── capture/              # packet capture scripts (Scapy/tshark)
 ├── feature_extraction/   # flow-window feature builder
-├── ml/                   # training scripts, saved models
+├── ml/                   # training scripts, saved models, pipeline.py (features -> backend)
 ├── backend/              # FastAPI app, DB models, auth
-├── dashboard/            # React frontend
+├── frontend/              # React + Vite dashboard
 ├── scripts/              # attack simulation helper scripts (Kali side)
 ├── data/                 # datasets (gitignored except .gitkeep)
 ├── models/               # exported .pkl/.joblib models (gitignored, or use Git LFS)

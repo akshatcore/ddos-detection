@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ORMBase(BaseModel):
@@ -16,14 +16,14 @@ class RoleRead(ORMBase):
 
 class UserRead(ORMBase):
     id: int
-    email: EmailStr
+    email: str
     full_name: str | None = None
     is_active: bool
     role: RoleRead
 
 
 class LoginRequest(BaseModel):
-    email: EmailStr
+    email: str
     password: str
 
 
@@ -113,6 +113,11 @@ class IncidentRead(ORMBase):
     status: str
     created_at: datetime
     updated_at: datetime
+    # Nested flow/prediction data (already eager-loaded by the incidents
+    # query) - exposes the real attacker IP, protocol, and packet-level
+    # details behind each alert instead of hiding them behind an ID.
+    flow: FlowRead | None = None
+    prediction: PredictionRead | None = None
 
 
 class MitigationActionRead(ORMBase):

@@ -43,7 +43,12 @@ def evaluate_alert(payload: AlertEvaluationRequest, db: Session = Depends(get_db
     db.add(prediction)
     db.flush()
 
-    decision = engine.evaluate(prediction.predicted_label, prediction.confidence, prediction.packet_rate)
+    decision = engine.evaluate(
+        prediction.predicted_label,
+        prediction.confidence,
+        prediction.packet_rate,
+        flow.feature_snapshot,
+    )
     if not decision.triggered:
         db.commit()
         logger.info("Alert evaluation completed without trigger for flow %s", flow.id)
@@ -52,7 +57,7 @@ def evaluate_alert(payload: AlertEvaluationRequest, db: Session = Depends(get_db
     incident = Incident(
         flow_id=flow.id,
         prediction_id=prediction.id,
-        title=f"{decision.severity.title()} DDoS alert",
+        title=f"{decision.severity.title()} DDoS Alert ({prediction.predicted_label})",
         description=decision.reason,
         severity=decision.severity,
         status="open",

@@ -11,7 +11,7 @@ from backend.app.models import User
 from backend.app.schemas import LoginRequest, TokenResponse, UserRead
 
 
-router = APIRouter(tags=["auth"])
+router = APIRouter(prefix="/auth", tags=["auth"])
 logger = logging.getLogger(__name__)
 
 

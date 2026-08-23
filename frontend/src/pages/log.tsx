@@ -1,12 +1,15 @@
 import { useState } from "react";
 import "../styles/login.css";
+import { FiShield, FiSun, FiMoon } from "react-icons/fi";
 import { login } from "../services/auth";
+import { useTheme } from "../theme/ThemeContext";
 
 type LoginProps = {
   onLogin: () => void;
 };
 
 function Login({ onLogin }: LoginProps) {
+  const { mode, toggle } = useTheme();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +33,14 @@ function Login({ onLogin }: LoginProps) {
 
   return (
     <div className="login-container">
+      <button className="icon-btn login-theme-toggle" onClick={toggle} type="button" title="Toggle theme">
+        {mode === "dark" ? <FiSun /> : <FiMoon />}
+      </button>
+
       <div className="login-box">
+        <div className="login-badge">
+          <FiShield />
+        </div>
         <h1>ML-Based DDoS Detection</h1>
         <p>Security Operations Center</p>
 
@@ -51,7 +61,7 @@ function Login({ onLogin }: LoginProps) {
             required
           />
 
-          {error && <p style={{ color: "red" }}>{error}</p>}
+          {error && <p className="login-error">{error}</p>}
 
           <button type="submit" disabled={loading}>
             {loading ? "Signing in..." : "Login"}

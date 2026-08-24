@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import {
   FiShield,
@@ -11,6 +12,7 @@ import {
 } from "react-icons/fi";
 
 import { SidebarStatus } from "./SidebarStatus";
+import { DocumentationModal } from "./DocumentationModal";
 
 const NAV_ITEMS = [
   { to: "/", label: "Dashboard", icon: <FiHome /> },
@@ -21,6 +23,8 @@ const NAV_ITEMS = [
 ];
 
 export function Sidebar() {
+  const [docsOpen, setDocsOpen] = useState(false);
+
   return (
     <aside className="app-sidebar">
       <div className="brand">
@@ -61,11 +65,19 @@ export function Sidebar() {
       <div className="help-card">
         <h4>Need help?</h4>
         <p>Check the project README for setup, attack simulation, and API docs.</p>
-        <a href="#" onClick={(e) => e.preventDefault()}>
+        <a
+          href="#"
+          onClick={(e) => {
+            e.preventDefault();
+            setDocsOpen(true);
+          }}
+        >
           <FiBookOpen style={{ marginRight: 6, verticalAlign: -2 }} />
           Documentation
         </a>
       </div>
+
+      <DocumentationModal open={docsOpen} onClose={() => setDocsOpen(false)} />
     </aside>
   );
 }

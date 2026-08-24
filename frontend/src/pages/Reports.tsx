@@ -78,6 +78,19 @@ function Reports() {
         ]),
       });
 
+      // Page border - drawn last, on every page autoTable produced (not just
+      // the first), so it still frames the page even if the incident table
+      // spills onto page 2+.
+      const pageCount = doc.getNumberOfPages();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setDrawColor(37, 99, 235);
+        doc.setLineWidth(0.6);
+        doc.rect(8, 8, pageWidth - 16, pageHeight - 16);
+      }
+
       doc.save("DDoS_Security_Report.pdf");
     } catch (err) {
       setPdfError("Could not generate the PDF. Your dashboard data is unaffected - please try again.");

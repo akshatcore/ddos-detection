@@ -2,6 +2,9 @@
 .env
 .env.local
 
+# --- Auto-install script: embeds the real DATABASE_URL, must never be committed ---
+auto_installation.bat
+
 # --- Python ---
 __pycache__/
 *.py[cod]

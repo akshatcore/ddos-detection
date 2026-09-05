@@ -3,9 +3,13 @@ import { FiSettings } from "react-icons/fi";
 import { getSettings, updateSettings, type Settings as SettingsType } from "../services/settings";
 
 // Mirrors exactly what the backend actually persists and exposes
-// (confidence_threshold, packet_rate_threshold, session_timeout_minutes,
-// mitigation_interface) - no fabricated firewall/monitoring toggle switches
-// that don't correspond to any real backend state.
+// (confidence_threshold, packet_rate_threshold, session_timeout_minutes) -
+// no fabricated firewall/monitoring toggle switches that don't correspond
+// to any real backend state. "Mitigation Network Interface" used to be
+// here too, but real mitigation (backend/app/services/mitigation.py) blocks
+// by remote IP via netsh, not by interface name - that field controlled
+// nothing real, so it was removed rather than left as a working-looking
+// but inert control.
 function Settings() {
   const [settings, setSettings] = useState<SettingsType | null>(null);
   const [loading, setLoading] = useState(true);
@@ -97,17 +101,6 @@ function Settings() {
                       onChange={(e) =>
                         setSettings({ ...settings, session_timeout_minutes: parseInt(e.target.value) })
                       }
-                    />
-                  </td>
-                </tr>
-                <tr>
-                  <td>Mitigation Network Interface</td>
-                  <td>
-                    <input
-                      type="text"
-                      className="field-input"
-                      value={settings.mitigation_interface}
-                      onChange={(e) => setSettings({ ...settings, mitigation_interface: e.target.value })}
                     />
                   </td>
                 </tr>

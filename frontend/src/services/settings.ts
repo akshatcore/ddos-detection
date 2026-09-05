@@ -6,7 +6,6 @@ export type Settings = {
   confidence_threshold: number;
   packet_rate_threshold: number;
   session_timeout_minutes: number;
-  mitigation_interface: string;
 };
 
 export async function getSettings(): Promise<Settings> {

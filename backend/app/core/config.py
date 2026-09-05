@@ -17,7 +17,6 @@ class Settings(BaseSettings):
     session_timeout_minutes: int = 30
     confidence_threshold: float = 0.85
     packet_rate_threshold: float = 100.0
-    mitigation_interface: str = "eth0"
     model_artifact_dir: str = "models"
     log_level: str = "INFO"
     backend_cors_origins: List[str] = Field(default_factory=lambda: ["*"])

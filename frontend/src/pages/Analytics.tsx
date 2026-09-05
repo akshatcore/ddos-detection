@@ -66,6 +66,7 @@ function Analytics() {
   const [activeModel, setActiveModel] = useState<ModelVersion | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [stale, setStale] = useState(false);
 
   useEffect(() => {
     async function loadData(isFirstLoad: boolean) {
@@ -74,8 +75,13 @@ function Analytics() {
         setIncidents(incidentsData);
         setActiveModel(modelsData.find((m) => m.is_active) || modelsData[0] || null);
         setError(null);
+        setStale(false);
       } catch (err) {
-        if (isFirstLoad) setError("Failed to load analytics data from the backend.");
+        if (isFirstLoad) {
+          setError("Failed to load analytics data from the backend.");
+        } else {
+          setStale(true);
+        }
       } finally {
         if (isFirstLoad) setLoading(false);
       }
@@ -103,6 +109,11 @@ function Analytics() {
   return (
     <div>
       {error && <div className="banner-error">{error}</div>}
+      {!error && stale && (
+        <div className="banner-error" style={{ background: "var(--accent-yellow, #b45309)" }}>
+          Lost connection to the backend - showing the last data received. Retrying every 3s...
+        </div>
+      )}
       {loading && <p style={{ color: "var(--text-secondary)" }}>Loading analytics from backend...</p>}
 
       {!loading && !error && (

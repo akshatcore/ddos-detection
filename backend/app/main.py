@@ -41,7 +41,6 @@ def seed_initial_data():
             "confidence_threshold": 0.85,
             "packet_rate_threshold": 100.0,
             "session_timeout_minutes": 30,
-            "mitigation_interface": "eth0",
         }
         for key, value in defaults.items():
             if not session.query(SystemSetting).filter(SystemSetting.key == key).first():

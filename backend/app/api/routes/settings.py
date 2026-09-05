@@ -32,13 +32,11 @@ def get_settings_route(db: Session = Depends(get_db), user: User = Depends(requi
     _upsert_setting(db, "confidence_threshold", settings.confidence_threshold, "Alert engine confidence threshold")
     _upsert_setting(db, "packet_rate_threshold", settings.packet_rate_threshold, "Alert engine packet-rate threshold")
     _upsert_setting(db, "session_timeout_minutes", settings.session_timeout_minutes, "JWT session timeout window")
-    _upsert_setting(db, "mitigation_interface", settings.mitigation_interface, "Interface used for simulated mitigation")
     db.commit()
     return SettingsRead(
         confidence_threshold=settings.confidence_threshold,
         packet_rate_threshold=settings.packet_rate_threshold,
         session_timeout_minutes=settings.session_timeout_minutes,
-        mitigation_interface=settings.mitigation_interface,
     )
 
 
@@ -51,13 +49,10 @@ def update_settings_route(payload: SettingsUpdate, db: Session = Depends(get_db)
         settings.packet_rate_threshold = payload.packet_rate_threshold
     if payload.session_timeout_minutes is not None:
         settings.session_timeout_minutes = payload.session_timeout_minutes
-    if payload.mitigation_interface is not None:
-        settings.mitigation_interface = payload.mitigation_interface
 
     _upsert_setting(db, "confidence_threshold", settings.confidence_threshold, "Alert engine confidence threshold")
     _upsert_setting(db, "packet_rate_threshold", settings.packet_rate_threshold, "Alert engine packet-rate threshold")
     _upsert_setting(db, "session_timeout_minutes", settings.session_timeout_minutes, "JWT session timeout window")
-    _upsert_setting(db, "mitigation_interface", settings.mitigation_interface, "Interface used for simulated mitigation")
     db.commit()
 
     logger.info("Settings updated by %s", user.email)
@@ -65,5 +60,4 @@ def update_settings_route(payload: SettingsUpdate, db: Session = Depends(get_db)
         confidence_threshold=settings.confidence_threshold,
         packet_rate_threshold=settings.packet_rate_threshold,
         session_timeout_minutes=settings.session_timeout_minutes,
-        mitigation_interface=settings.mitigation_interface,
     )

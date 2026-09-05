@@ -12,6 +12,7 @@ function Reports() {
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [stale, setStale] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
 
@@ -25,8 +26,13 @@ function Reports() {
         setSummary(summaryData);
         setIncidents(incidentsData);
         setError(null);
+        setStale(false);
       } catch (err) {
-        if (isFirstLoad) setError("Failed to load report data from the backend.");
+        if (isFirstLoad) {
+          setError("Failed to load report data from the backend.");
+        } else {
+          setStale(true);
+        }
       } finally {
         if (isFirstLoad) setLoading(false);
       }
@@ -111,6 +117,11 @@ function Reports() {
       </div>
 
       {error && <div className="banner-error">{error}</div>}
+      {!error && stale && (
+        <div className="banner-error" style={{ background: "var(--accent-yellow, #b45309)" }}>
+          Lost connection to the backend - showing the last data received. Retrying every 3s...
+        </div>
+      )}
       {pdfError && <div className="banner-error">{pdfError}</div>}
       {loading && <p style={{ color: "var(--text-secondary)" }}>Loading report data...</p>}
 

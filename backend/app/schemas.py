@@ -153,12 +153,10 @@ class SettingsRead(BaseModel):
     confidence_threshold: float
     packet_rate_threshold: float
     session_timeout_minutes: int
-    mitigation_interface: str
 
 
 class SettingsUpdate(BaseModel):
     confidence_threshold: float | None = Field(default=None, ge=0, le=1)
     packet_rate_threshold: float | None = Field(default=None, ge=0)
     session_timeout_minutes: int | None = Field(default=None, ge=1)
-    mitigation_interface: str | None = None
 

@@ -6,6 +6,7 @@ function Incidents() {
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [stale, setStale] = useState(false);
   const [mitigatingId, setMitigatingId] = useState<number | null>(null);
 
   async function loadIncidents(isFirstLoad = false) {
@@ -13,10 +14,16 @@ function Incidents() {
       const data = await getIncidents();
       setIncidents(data);
       setError(null);
+      setStale(false);
     } catch (err) {
-      // Only surface the error banner on the very first load - a background
-      // refresh hiccup shouldn't blank out an otherwise-working table.
-      if (isFirstLoad) setError("Failed to load incidents from the backend.");
+      // Only block the whole table on the very first load - a background
+      // refresh hiccup shows a small stale-data banner instead (see
+      // Dashboard.tsx for the same pattern and the reasoning behind it).
+      if (isFirstLoad) {
+        setError("Failed to load incidents from the backend.");
+      } else {
+        setStale(true);
+      }
     } finally {
       if (isFirstLoad) setLoading(false);
     }
@@ -33,9 +40,9 @@ function Incidents() {
   async function handleMitigate(id: number) {
     setMitigatingId(id);
     try {
-      // Calls the real backend mitigation endpoint - this actually creates
-      // a simulated mitigation record server-side, it does not just change
-      // local UI state.
+      // Calls the real backend mitigation endpoint - this executes an
+      // actual Windows Firewall block (netsh advfirewall) server-side, not
+      // a simulation, and not just a local UI state change.
       await mitigateIncident(id);
       await loadIncidents();
     } catch (err) {
@@ -57,6 +64,11 @@ function Incidents() {
       </div>
 
       {error && <div className="banner-error">{error}</div>}
+      {!error && stale && (
+        <div className="banner-error" style={{ background: "var(--accent-yellow, #b45309)" }}>
+          Lost connection to the backend - showing the last data received. Retrying every 3s...
+        </div>
+      )}
       {loading && <p style={{ color: "var(--text-secondary)" }}>Loading incidents...</p>}
 
       {!loading && !error && (

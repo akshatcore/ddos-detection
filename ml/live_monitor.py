@@ -38,6 +38,7 @@ import requests
 REPO_ROOT = Path(__file__).resolve().parent.parent
 RAW_PACKETS_FILE = REPO_ROOT / "data" / "raw_packets.csv"
 FEATURES_FILE = REPO_ROOT / "data" / "flow_features.csv"
+CAPTURE_LOG_FILE = REPO_ROOT / "data" / "capture.log"
 MODEL_PATH = REPO_ROOT / "models" / "random_forest_v1.0.joblib"
 WINDOW_SECONDS = 5
 SETTLE_SECONDS = 0.5  # don't finalize a window until it's safely in the past
@@ -115,12 +116,36 @@ def main():
     args = parse_args()
 
     print(f"Starting background packet capture on {args.bind_ip} (Ctrl+C to stop everything)...")
+    # Previously piped to DEVNULL - meant a capture crash (by far the most
+    # common real cause: --bind-ip isn't actually one of THIS machine's own
+    # interface IPs, or the process isn't Administrator) was completely
+    # silent. This loop would just sit there "watching for attacks" forever
+    # against a dead capture process, with zero visible error and an empty
+    # raw_packets.csv - exactly the kind of failure that eats a viva slot.
+    # Capturing output to a real file (and checking the process is still
+    # alive below) turns that into an immediate, readable error instead.
+    CAPTURE_LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+    capture_log = open(CAPTURE_LOG_FILE, "w")
     capture_proc = subprocess.Popen(
         [sys.executable, str(REPO_ROOT / "capture" / "live_capture_raw_socket.py"), "--bind-ip", args.bind_ip],
         cwd=str(REPO_ROOT),
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        stdout=capture_log,
+        stderr=subprocess.STDOUT,
     )
+
+    # Give it a moment to fail fast rather than silently limping along -
+    # a bad bind IP or a missing-Administrator socket error surfaces within
+    # well under a second in practice.
+    time.sleep(1.5)
+    if capture_proc.poll() is not None:
+        capture_log.flush()
+        capture_log.close()
+        print(f"\n[FATAL] Capture process exited immediately (code {capture_proc.returncode}) - it never started capturing.")
+        print(f"Most likely cause: --bind-ip {args.bind_ip} isn't one of THIS machine's own real")
+        print("interface IPs (run 'ipconfig' and check), or this terminal isn't running as Administrator.")
+        print(f"\nFull output from {CAPTURE_LOG_FILE}:")
+        print(CAPTURE_LOG_FILE.read_text(errors="replace"))
+        return
 
     print("Loading model...")
     bundle = joblib.load(MODEL_PATH)
@@ -151,7 +176,23 @@ def main():
     # many packets have accumulated in raw_packets.csv over the whole
     # session (which was the real cause of things slowing down over time).
     buffer_df = pd.DataFrame()
+
+    # If raw_packets.csv already has data from a PREVIOUS run (nothing here
+    # ever truncates it, by design - feature_extraction/build_features.py
+    # can do post-hoc analysis over full history), start reading from the
+    # END of it, not the beginning. Without this, a normal restart mid-demo
+    # would re-read every old packet as if it just arrived, aggregate it
+    # into "new" flows, and push a burst of stale predictions/alerts to the
+    # backend within the very first cycle - confusing to watch happen live.
     lines_read = 0  # data rows already consumed from raw_packets.csv
+    if RAW_PACKETS_FILE.exists():
+        with open(RAW_PACKETS_FILE) as f:
+            lines_read = max(sum(1 for _ in f) - 1, 0)  # -1 for the header row
+        if lines_read > 0:
+            print(
+                f"Found {lines_read} existing packet(s) in {RAW_PACKETS_FILE} from a previous run - "
+                f"skipping them, only NEW packets captured from now on will be scored."
+            )
 
     print(f"Watching for attacks every {args.interval:.0f}s. Run your attack from Kali (or anywhere reaching {args.bind_ip}) now.")
     total_pushed = total_triggered = 0
@@ -159,6 +200,11 @@ def main():
     try:
         while True:
             time.sleep(args.interval)
+
+            if capture_proc.poll() is not None:
+                print(f"\n[FATAL] Capture process died unexpectedly (code {capture_proc.returncode}) mid-session.")
+                print(f"See {CAPTURE_LOG_FILE} for details. Stopping - restart live_monitor.py once fixed.")
+                break
 
             if not RAW_PACKETS_FILE.exists():
                 continue
@@ -276,6 +322,8 @@ def main():
             capture_proc.wait(timeout=5)
         except subprocess.TimeoutExpired:
             capture_proc.kill()
+        if not capture_log.closed:
+            capture_log.close()
 
 
 if __name__ == "__main__":

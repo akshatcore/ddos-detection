@@ -28,6 +28,16 @@ dist-ssr/
 # --- Runtime-generated capture/ML output (regenerated on every run) ---
 data/raw_packets.csv
 data/flow_features.csv
+data/capture.log
+
+# --- Trained model binary (56MB+, regenerable via `python ml/train_baseline.py`
+# from the data already in data/cicddos2019/ - was committed once, ballooning
+# .git by ~56MB per retrain. metadata.json (tiny, informative) stays tracked;
+# the .joblib binary itself does not, going forward. ---
+models/*.joblib
+
+# --- Evaluation report images/CSVs (regenerated via `python ml/evaluate_model.py`) ---
+models/evaluation/
 
 # --- Logs ---
 *.log

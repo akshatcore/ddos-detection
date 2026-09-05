@@ -1,4 +1,12 @@
 """
+==============================================================================
+ARCHIVED / EXPLORATORY SCRIPT - kept for the project report, NOT production.
+Superseded by train_baseline.py, which already applies the pooled+stratified
+split this experiment validated. Do not run this to produce the shipped
+model - run train_baseline.py for that, and ml/evaluate_model.py to
+regenerate the persisted evaluation report from an already-trained model.
+==============================================================================
+
 EXPERIMENT: Pool all training + testing files together, then do our OWN random
 stratified split, instead of relying on the dataset's fixed train/test-by-day split.
 

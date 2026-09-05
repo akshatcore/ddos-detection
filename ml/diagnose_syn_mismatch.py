@@ -1,4 +1,12 @@
 """
+==============================================================================
+ARCHIVED / EXPLORATORY SCRIPT - kept for the project report, NOT production.
+This is the diagnostic that first identified the day-based distribution
+shift documented in train_baseline.py's docstring (the root cause behind
+the original day-split model's 0.00 Syn recall). Historical record of that
+investigation, not something later steps in the pipeline depend on.
+==============================================================================
+
 Diagnostic: compare feature distributions between Syn-training and Syn-testing
 to understand WHY the model fails to generalize on the Syn attack class.
 

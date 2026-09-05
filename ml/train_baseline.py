@@ -59,10 +59,46 @@ MODEL_DIR = "../models"
 MODEL_VERSION = "v1.0"
 RANDOM_SEED = 42
 
-# Which attack types to include. MSSQL excluded - only 145 total rows across
-# the whole dataset, not enough to train a reliable classifier (confirmed via
-# pooled experiment: only 27% F1, too noisy to trust).
-ATTACK_TYPES = ["Syn", "UDP", "NetBIOS"]
+# Which attack types to include.
+#
+# "Syn", "UDP", "NetBIOS" were the original v1.0 set. This adds most of the
+# other CICDDoS2019 attack types actually present in data/cicddos2019/,
+# except two, both excluded for the SAME reason - confirmed too small/noisy
+# to trust in a security detection system, not excluded on a hunch:
+#
+#   MSSQL excluded - only 145 total rows across the whole dataset (confirmed
+#   via pooled experiment: only 27% F1).
+#   Portmap excluded - 685 rows, confirmed via a real training run: 17%
+#   precision / 40% recall / 24% F1, mostly confused with NetBIOS and Syn.
+#   Worse than the MSSQL bar that was already used to exclude a class.
+#
+# Two different data situations exist among the classes that ARE included:
+#   - "LDAP" and "UDPLag" have BOTH a -training.parquet and a -testing.parquet
+#     file (two separate capture days), same as Syn/UDP/NetBIOS - the
+#     pooled+stratified split fix (see module docstring) applies to these
+#     identically and gives the same cross-day generalization guarantee.
+#   - "DNS", "NTP", "SNMP", "TFTP" each have only ONE file on disk (e.g.
+#     only *-testing.parquet - see data/cicddos2019/). There's no second day
+#     to pool for these classes specifically, so while they still go through
+#     the same pooled+stratified 80/20 split as everything else (still
+#     strictly better than a naive single-file split), there is no
+#     cross-day generalization test possible for THEM individually - a real
+#     data limitation, not a code gap. Documented in docs/MODEL_CARD.md.
+#
+# Real result of adding these (see docs/MODEL_CARD.md for the full
+# breakdown): DNS/LDAP/SNMP land at 57-72% F1, confused with EACH OTHER
+# (not with Benign or with the original 3 classes) - all three are
+# UDP-based reflection/amplification attacks with genuinely overlapping
+# flow-shape statistics at this feature granularity. Kept anyway because
+# alert_engine.py's heuristic layer flags any zero-TCP-handshake flood
+# regardless of which of these labels the model assigns, so this confusion
+# does not translate into missed detections - only into a less precise
+# attack-subtype label on an alert that still fires correctly.
+#
+# load_all_pooled() already skips (with a warning) any file that doesn't
+# exist, so this list is safe even on a machine with a different subset of
+# the parquet files actually downloaded.
+ATTACK_TYPES = ["Syn", "UDP", "NetBIOS", "LDAP", "UDPLag", "DNS", "NTP", "SNMP", "TFTP"]
 
 # Confirmed to exist in the actual dataset (from your column list)
 FEATURE_COLUMNS = [
@@ -93,6 +129,8 @@ LABEL_NORMALIZATION = {
     "DrDoS_DNS": "DNS",
     "DrDoS_SNMP": "SNMP",
     "DrDoS_SSDP": "SSDP",
+    "DrDoS_Portmap": "Portmap",
+    "Portmap": "Portmap",
     "UDP-lag": "UDPLag",
     "UDPLag": "UDPLag",
     "Syn": "Syn",
@@ -148,9 +186,15 @@ def clean_data(df):
     df = df.dropna(subset=FEATURE_COLUMNS + [LABEL_COLUMN])
     df = normalize_labels(df)
 
-    # Drop any label not in our intended attack set + Benign. This catches stray
-    # rows like the 145 MSSQL rows that leak into UDP-training.parquet even though
-    # MSSQL isn't one of our chosen ATTACK_TYPES - keeps report metrics clean.
+    # Drop any label not in our intended attack set + Benign. This catches
+    # stray rows from attack types that leak into another type's file but
+    # aren't one of our chosen ATTACK_TYPES - keeps report metrics clean.
+    # Confirmed real, not hypothetical: the 145 MSSQL rows inside
+    # UDP-training.parquet, the 685 Portmap rows in Portmap-training.parquet
+    # (excluded - see ATTACK_TYPES comment), and 51 "WebDDoS" rows found
+    # inside UDPLag-testing.parquet - a label this project never explicitly
+    # decided to exclude because it was never one of the intended attack
+    # types to begin with.
     allowed_labels = set(ATTACK_TYPES) | {"Benign"}
     stray = ~df[LABEL_COLUMN].isin(allowed_labels)
     if stray.any():

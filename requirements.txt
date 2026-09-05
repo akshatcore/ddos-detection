@@ -3,6 +3,18 @@ pandas==2.2.0
 numpy==1.26.4
 scikit-learn==1.8.0
 joblib==1.3.2
+# pandas.read_parquet() needs one of these two engines to read the
+# CICDDoS2019 .parquet files (train_baseline.py, ml/evaluate_model.py) -
+# pandas does NOT bundle one itself. This was missing here even though
+# train_baseline.py has always required it; it likely only "worked" on
+# existing dev machines because pyarrow got installed separately at some
+# point and never added back to this file. A fresh `pip install -r
+# requirements.txt` (e.g. via auto_installation.bat on a new teammate's
+# machine) would fail on this the moment they tried to train or evaluate.
+pyarrow==15.0.0
+# Used by ml/evaluate_model.py to render the confusion matrix and feature
+# importance plots saved under models/evaluation/.
+matplotlib==3.8.3
 fastapi==0.109.0
 uvicorn==0.27.0
 sqlalchemy==2.0.25

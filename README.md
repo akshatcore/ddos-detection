@@ -59,9 +59,12 @@ If `live_capture.py` prints packets, your lab network is wired correctly. Move t
 cd ml
 python3 train_baseline.py
 ```
-A trained bundle already ships in `models/random_forest_v1.0.joblib` (see
-`models/random_forest_v1.0_metadata.json` for its test metrics), so you can
-skip straight to Step 4 unless you want to retrain.
+`models/random_forest_v1.0.joblib` is gitignored (56MB+, regenerable - see
+`.gitignore`), so a fresh clone needs one real training run before Step 4
+will have a model to load. `models/random_forest_v1.0_metadata.json` (small,
+tracked in git) always reflects whichever model was last trained, so you
+can check it to see the current model's real test metrics without opening
+the binary.
 
 ## Step 4 — Extract features and score them
 ```bash

@@ -14,6 +14,16 @@ export const ATTACK_COLORS: Record<string, string> = {
   syn: "#ef4444",
   udp: "#ff8a5c",
   netbios: "#7551ff",
+  // Added alongside the ML expansion beyond the original 3 attack classes
+  // (see ml/train_baseline.py's ATTACK_TYPES) - unlisted labels already fell
+  // back to a generic blue automatically, this just gives each its own color.
+  ldap: "#f472b6",
+  udplag: "#facc15",
+  dns: "#22d3ee",
+  ntp: "#a3e635",
+  portmap: "#fb923c",
+  snmp: "#c084fc",
+  tftp: "#38bdf8",
   unknown: "#4f8dfd",
 };
 

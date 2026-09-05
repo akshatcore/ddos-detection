@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import Log from "./pages/log";
@@ -16,6 +16,21 @@ function App() {
   // Checks for a real stored token on load instead of always starting
   // logged out - so a page refresh doesn't kick the user back to login.
   const [loggedIn, setLoggedIn] = useState(isAuthenticated());
+
+  // A session can expire mid-use (JWT session_timeout_minutes elapses, or
+  // the backend restarts with a rotated JWT_SECRET_KEY - both real cases in
+  // this project). api.ts's response interceptor catches the resulting 401,
+  // clears localStorage, and fires this event - without listening for it,
+  // `loggedIn` (set once, above, on mount) would never learn the session
+  // ended, and every route would keep rendering as if still authenticated
+  // while silently failing every request underneath.
+  useEffect(() => {
+    function handleExpired() {
+      setLoggedIn(false);
+    }
+    window.addEventListener("auth:expired", handleExpired);
+    return () => window.removeEventListener("auth:expired", handleExpired);
+  }, []);
 
   return (
     <ErrorBoundary>

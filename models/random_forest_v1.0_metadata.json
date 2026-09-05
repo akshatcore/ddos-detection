@@ -1,11 +1,17 @@
 {
   "version": "v1.0",
-  "trained_at": "2026-07-05T19:53:07.067598",
+  "trained_at": "2026-09-05T18:57:58.357472",
   "algorithm": "RandomForestClassifier",
   "attack_types_included": [
     "Syn",
     "UDP",
-    "NetBIOS"
+    "NetBIOS",
+    "LDAP",
+    "UDPLag",
+    "DNS",
+    "NTP",
+    "SNMP",
+    "TFTP"
   ],
   "features": [
     "Flow Duration",
@@ -22,13 +28,19 @@
   ],
   "classes": [
     "Benign",
+    "DNS",
+    "LDAP",
+    "NTP",
     "NetBIOS",
+    "SNMP",
     "Syn",
-    "UDP"
+    "TFTP",
+    "UDP",
+    "UDPLag"
   ],
-  "test_accuracy": 0.9964,
-  "test_precision": 0.9965,
-  "test_recall": 0.9964,
-  "test_f1": 0.9964,
+  "test_accuracy": 0.9807,
+  "test_precision": 0.9815,
+  "test_recall": 0.9807,
+  "test_f1": 0.9808,
   "random_seed": 42
 }

@@ -24,6 +24,14 @@ class AlertEngine:
     ML-based NIDS, not something you can just retrain your way out of
     overnight.
 
+    Two independent rate/flag-based heuristics currently exist:
+      - SYN-flood shape: overwhelming SYN ratio, near-zero ACKs, no replies.
+      - UDP-style flood shape: zero TCP handshake activity at all (covers
+        both the UDP and NetBIOS attack classes, which share this shape at
+        the flow-feature level - see _heuristic_flood_check for why these
+        two aren't distinguished from each other yet).
+    Both are independent of whatever the ML model predicts.
+
     Real DDoS mitigation stacks (and NIDS like Suricata/Snort) handle this
     exact gap the same way: defense in depth. The ML model stays the
     primary detector for nuanced/behavioral attacks, and a small set of
@@ -96,6 +104,28 @@ class AlertEngine:
                 f"Heuristic SYN-flood signature detected independently of model "
                 f"classification (rate={packet_rate:.0f} pkt/s, SYN ratio={syn_ratio:.0%}, "
                 f"zero reply traffic)",
+                "critical",
+            )
+
+        # UDP-style flood safety net (covers both the UDP and NetBIOS attack
+        # classes). Neither the feature-extraction pipeline nor the live
+        # monitor currently pass destination port through to this snapshot
+        # (see feature_extraction/build_features.py and ml/live_monitor.py -
+        # only the 11 model features are forwarded), so this deliberately
+        # CANNOT tell a NetBIOS Name Service flood (UDP/137-138) apart from a
+        # generic UDP flood - both share the same behavioral shape at the
+        # flow-feature level: zero TCP handshake activity (SYN Flag Count and
+        # ACK Flag Count are both 0, since these attacks aren't TCP at all),
+        # one-directional, and far above baseline rate. That is enough to
+        # catch either attack independently of the ML label; distinguishing
+        # *which* UDP-based attack it is would need dst_port added to the
+        # feature snapshot - a good follow-up, not done here.
+        if extreme_rate and syn == 0 and ack == 0 and bwd == 0:
+            return AlertDecision(
+                True,
+                f"Heuristic UDP-style flood signature detected independently of model "
+                f"classification (rate={packet_rate:.0f} pkt/s, zero TCP handshake activity, "
+                f"zero reply traffic) - matches UDP-flood/NetBIOS-flood behavioral shape",
                 "critical",
             )
 

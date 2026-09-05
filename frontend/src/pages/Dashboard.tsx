@@ -59,6 +59,15 @@ function Dashboard() {
   const [mitigations, setMitigations] = useState<MitigationBreakdown | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Distinct from `error`: `error` blocks the whole dashboard (only ever set
+  // on the very first load, when there's no data to show yet at all).
+  // `stale` covers the case that used to be silently swallowed - the
+  // backend going away or a request timing out (see api.ts's 15s timeout)
+  // AFTER data has already loaded once. Without this, losing the backend
+  // mid-session left every number frozen with zero on-screen indication
+  // anything was wrong; the "refreshes every 3s" label kept claiming the
+  // page was live.
+  const [stale, setStale] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -77,9 +86,14 @@ function Dashboard() {
         setModels(modelsData);
         setMitigations(mitigationData);
         setError(null);
+        setStale(false);
       } catch (err) {
         if (cancelled) return;
-        if (isFirstLoad) setError("Failed to load dashboard data from the backend.");
+        if (isFirstLoad) {
+          setError("Failed to load dashboard data from the backend.");
+        } else {
+          setStale(true);
+        }
       } finally {
         if (!cancelled && isFirstLoad) setLoading(false);
       }
@@ -120,6 +134,11 @@ function Dashboard() {
   return (
     <div>
       {error && <div className="banner-error">{error}</div>}
+      {!error && stale && (
+        <div className="banner-error" style={{ background: "var(--accent-yellow, #b45309)" }}>
+          Lost connection to the backend - showing the last data received. Retrying every 3s...
+        </div>
+      )}
       {loading && <p style={{ color: "var(--text-secondary)" }}>Loading live data from backend...</p>}
 
       {!loading && summary && (

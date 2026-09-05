@@ -148,6 +148,14 @@ def main():
         return
 
     print("Loading model...")
+    if not MODEL_PATH.exists():
+        print(f"\n[FATAL] No trained model at {MODEL_PATH}.")
+        print("models/*.joblib is gitignored (not shipped in the repo) - train one first:")
+        print("  cd ml && python train_baseline.py")
+        print("(auto_installation.bat does this automatically on a fresh setup.)")
+        capture_proc.terminate()
+        capture_log.close()
+        return
     bundle = joblib.load(MODEL_PATH)
     model = bundle["model"]
     feature_columns = bundle["features"]

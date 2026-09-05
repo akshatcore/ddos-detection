@@ -1,1 +1,1 @@
-﻿{"name":"random_forest","version":"v1.0","artifact_path":"models/random_forest_v1.0.joblib","is_active":true,"metrics":{"test_accuracy":0.9964,"test_precision":0.9965,"test_recall":0.9964,"test_f1":0.9964}}
+{"name":"random_forest","version":"v1.0","artifact_path":"models/random_forest_v1.0.joblib","is_active":true,"metrics":{"test_accuracy":0.9807,"test_precision":0.9815,"test_recall":0.9807,"test_f1":0.9808}}

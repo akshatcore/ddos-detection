@@ -1,6 +1,9 @@
 import { useState, useEffect } from "react";
-import { FiSettings } from "react-icons/fi";
-import { getSettings, updateSettings, type Settings as SettingsType } from "../services/settings";
+import { FiSettings, FiTrash2 } from "react-icons/fi";
+import { getSettings, updateSettings, clearOperationalData, type Settings as SettingsType } from "../services/settings";
+import { getStoredUser } from "../services/auth";
+
+const CONFIRM_PHRASE = "DELETE";
 
 // Mirrors exactly what the backend actually persists and exposes
 // (confidence_threshold, packet_rate_threshold, session_timeout_minutes) -
@@ -16,6 +19,33 @@ function Settings() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
+  const isAdmin = getStoredUser()?.role?.name === "Admin";
+  const [showClearModal, setShowClearModal] = useState(false);
+  const [confirmText, setConfirmText] = useState("");
+  const [clearing, setClearing] = useState(false);
+  const [clearError, setClearError] = useState<string | null>(null);
+  const [clearSuccess, setClearSuccess] = useState(false);
+
+  function closeClearModal() {
+    setShowClearModal(false);
+    setConfirmText("");
+    setClearError(null);
+  }
+
+  async function handleClearData() {
+    setClearing(true);
+    setClearError(null);
+    try {
+      await clearOperationalData();
+      setClearSuccess(true);
+      closeClearModal();
+    } catch (err) {
+      setClearError("Failed to clear data. Admin role required.");
+    } finally {
+      setClearing(false);
+    }
+  }
 
   useEffect(() => {
     getSettings()
@@ -114,6 +144,77 @@ function Settings() {
           <p style={{ fontSize: "0.85em", color: "var(--text-muted)", marginTop: 10 }}>
             Note: saving requires an Admin role account.
           </p>
+        </div>
+      )}
+
+      {isAdmin && (
+        <div
+          className="glass-card"
+          style={{ maxWidth: 560, marginTop: 20, border: "1px solid var(--accent-red, #ef4444)" }}
+        >
+          <div className="card-title">
+            <h2 style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--accent-red, #ef4444)" }}>
+              <FiTrash2 /> Danger Zone
+            </h2>
+          </div>
+          <p style={{ fontSize: 13.5, color: "var(--text-secondary)", marginBottom: 14 }}>
+            Permanently deletes every incident, flow, prediction, and mitigation action from the
+            database - useful for wiping accumulated test data before a live demo. This does NOT
+            touch user accounts, roles, settings, or the registered ML model, so login and the
+            active model keep working right after. This cannot be undone.
+          </p>
+          {clearSuccess && <div className="banner-success">Operational data cleared. Refresh the Dashboard to see it reset.</div>}
+          <button
+            className="btn-primary"
+            style={{ background: "var(--accent-red, #ef4444)", borderColor: "var(--accent-red, #ef4444)" }}
+            onClick={() => {
+              setClearSuccess(false);
+              setShowClearModal(true);
+            }}
+          >
+            Clear All Detection Data
+          </button>
+        </div>
+      )}
+
+      {showClearModal && (
+        <div className="modal-overlay" onClick={closeClearModal}>
+          <div
+            className="glass-card modal-pop"
+            style={{ maxWidth: 440, width: "90%" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 style={{ fontSize: 17, marginBottom: 10, color: "var(--accent-red, #ef4444)" }}>
+              Clear all detection data?
+            </h2>
+            <p style={{ fontSize: 13.5, color: "var(--text-secondary)", marginBottom: 14 }}>
+              This permanently deletes every incident, flow, prediction, and mitigation action.
+              Type <strong>{CONFIRM_PHRASE}</strong> below to confirm.
+            </p>
+            {clearError && <div className="banner-error">{clearError}</div>}
+            <input
+              type="text"
+              className="field-input"
+              style={{ width: "100%", marginBottom: 14 }}
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              placeholder={CONFIRM_PHRASE}
+              autoFocus
+            />
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button className="btn-ghost" onClick={closeClearModal} disabled={clearing}>
+                Cancel
+              </button>
+              <button
+                className="btn-primary"
+                style={{ background: "var(--accent-red, #ef4444)", borderColor: "var(--accent-red, #ef4444)" }}
+                onClick={handleClearData}
+                disabled={confirmText !== CONFIRM_PHRASE || clearing}
+              >
+                {clearing ? "Clearing..." : "Clear Everything"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

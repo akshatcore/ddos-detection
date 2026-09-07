@@ -81,7 +81,8 @@ def test_syn_flood_shape_has_zero_backward_and_zero_ack():
 
 def test_flow_duration_is_never_zero_even_for_single_packet():
     """Flow Bytes/s and Flow Packets/s divide by duration - a single-packet
-    window must not produce a divide-by-zero (the code clamps to 1e-6s)."""
+    window must not produce a divide-by-zero (the code clamps to
+    MIN_FLOW_DURATION_SECONDS, not literal zero)."""
     group = _packets([
         {"timestamp": "2026-01-01 00:00:00.000", "src_ip": "10.0.0.5", "src_port": 1, "dst_ip": "10.0.0.1", "dst_port": 2, "protocol": "UDP", "packet_size": 512, "tcp_flags": ""},
     ])
@@ -89,4 +90,24 @@ def test_flow_duration_is_never_zero_even_for_single_packet():
     features = build_features._compute_flow_features(group)
 
     assert features["Flow Duration"] > 0
-    assert features["Flow Bytes/s"] == pytest.approx(512 / 1e-6)
+    assert features["Flow Bytes/s"] == pytest.approx(512 / build_features.MIN_FLOW_DURATION_SECONDS)
+
+
+def test_tiny_multicast_burst_does_not_compute_an_absurd_rate():
+    """Real bug, diagnosed live: two near-simultaneous packets (identical
+    millisecond timestamps - completely ordinary for Windows SSDP/mDNS/IGMP
+    background traffic) used to compute a "rate" of over a million
+    packets/sec once divided by the old 1-microsecond duration floor, which
+    blew through the heuristic flood thresholds in alert_engine.py and got
+    flagged Critical even though the ML model correctly called it Benign.
+    With the 100ms floor, the same 2 packets must compute a rate low enough
+    to never trip a threshold on its own (default packet_rate_threshold is
+    100/s - this must land nowhere close)."""
+    group = _packets([
+        {"timestamp": "2026-01-01 00:00:00.000", "src_ip": "192.168.56.1", "src_port": 5353, "dst_ip": "224.0.0.252", "dst_port": 5355, "protocol": "UDP", "packet_size": 52, "tcp_flags": ""},
+        {"timestamp": "2026-01-01 00:00:00.000", "src_ip": "192.168.56.1", "src_port": 5353, "dst_ip": "224.0.0.252", "dst_port": 5355, "protocol": "UDP", "packet_size": 52, "tcp_flags": ""},
+    ])
+    group["window"] = group["timestamp"].dt.floor("5s")
+    features = build_features._compute_flow_features(group)
+
+    assert features["Flow Packets/s"] < 50

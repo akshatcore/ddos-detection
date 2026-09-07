@@ -15,5 +15,10 @@ export type ModelVersion = {
 
 export async function getModels(): Promise<ModelVersion[]> {
   const response = await api.get<ModelVersion[]>("/models");
-  return response.data;
+  // Defensive: every caller does `.find(...)` on this immediately. The
+  // backend always returns a real array on success, but guarding here once
+  // means a malformed/unexpected response degrades to "no models" instead
+  // of crashing every page that shows model info (Dashboard, Analytics,
+  // SidebarStatus all call this).
+  return Array.isArray(response.data) ? response.data : [];
 }

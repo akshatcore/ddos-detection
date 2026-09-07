@@ -20,7 +20,7 @@ import { StatCard } from "../components/StatCard";
 import { SemiGauge } from "../components/Gauge";
 import { Badge } from "../components/Badge";
 import { extractAttackType } from "../utils/attackData";
-import { timeAgo } from "../utils/time";
+import { timeAgo, parseUtc } from "../utils/time";
 
 const SEVERITY_COLORS: Record<string, string> = {
   low: "#05cd99",
@@ -34,7 +34,7 @@ const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 function buildWeeklyTrend(incidents: Incident[]) {
   const counts = new Array(7).fill(0);
   for (const incident of incidents) {
-    const day = new Date(incident.created_at).getDay();
+    const day = parseUtc(incident.created_at).getDay();
     counts[day] += 1;
   }
   return DAY_NAMES.map((day, index) => ({ day, incidents: counts[index] }));

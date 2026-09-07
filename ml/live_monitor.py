@@ -42,6 +42,15 @@ CAPTURE_LOG_FILE = REPO_ROOT / "data" / "capture.log"
 MODEL_PATH = REPO_ROOT / "models" / "random_forest_v1.0.joblib"
 WINDOW_SECONDS = 5
 SETTLE_SECONDS = 0.5  # don't finalize a window until it's safely in the past
+# BUG FIX (documented for the project report): see the matching constant in
+# feature_extraction/build_features.py. Flooring flow duration to 1
+# microsecond meant a 2-packet burst with near-identical timestamps -
+# ordinary Windows background noise (SSDP/UPnP, mDNS, LLMNR, IGMP - all
+# zero SYN/ACK flags) - computed a "rate" of millions of packets/sec and
+# blew through the heuristic flood thresholds, alerting "Critical" on
+# traffic the model itself correctly called Benign. Diagnosed directly from
+# data/flow_features.csv during live testing.
+MIN_FLOW_DURATION_SECONDS = 0.1
 
 FEATURE_COLUMNS = [
     "Flow Duration", "Total Fwd Packets", "Total Backward Packets",
@@ -76,7 +85,7 @@ def compute_flow_features(group: pd.DataFrame) -> dict:
     fwd, bwd = group[fwd_mask], group[~fwd_mask]
 
     duration_seconds = (group["timestamp"].max() - group["timestamp"].min()).total_seconds()
-    flow_duration_us = max(duration_seconds, 1e-6) * 1_000_000
+    flow_duration_us = max(duration_seconds, MIN_FLOW_DURATION_SECONDS) * 1_000_000
     total_bytes = group["packet_size"].sum()
     total_packets = len(group)
 
@@ -273,7 +282,7 @@ def main():
             for i, (_, row) in enumerate(features_df.iterrows()):
                 packet_count = int(row["Total Fwd Packets"] + row["Total Backward Packets"])
                 byte_count = int(row["Fwd Packets Length Total"] + row["Bwd Packets Length Total"])
-                duration_s = max(row["Flow Duration"] / 1_000_000, 1e-6)
+                duration_s = max(row["Flow Duration"] / 1_000_000, MIN_FLOW_DURATION_SECONDS)
                 packet_rate = packet_count / duration_s
 
                 # Cheap pre-filter so idle background noise doesn't spam the

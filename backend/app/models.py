@@ -109,7 +109,11 @@ class Incident(Base):
     severity: Mapped[str] = mapped_column(String(20), nullable=False, default="medium")
     status: Mapped[str] = mapped_column(String(30), nullable=False, default="open")
     acknowledged_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, nullable=False)
+    # Indexed: every incidents query (list, dashboard polling, alerts feed)
+    # orders by this column, and the table only grows over the project's
+    # life - without an index Postgres has to sort the whole table on every
+    # poll, which gets slower the longer the demo/team keeps generating data.
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, nullable=False, index=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow, nullable=False)
 
     flow = relationship("Flow", back_populates="incidents")

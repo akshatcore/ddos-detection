@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { getIncidents, mitigateIncident, type Incident } from "../services/incidents";
 import { Badge } from "../components/Badge";
+import { parseUtc } from "../utils/time";
 
 function Incidents() {
   const [incidents, setIncidents] = useState<Incident[]>([]);
@@ -92,7 +93,7 @@ function Incidents() {
                 ) : (
                   incidents.map((item) => (
                     <tr key={item.id}>
-                      <td>{new Date(item.created_at).toLocaleString()}</td>
+                      <td>{parseUtc(item.created_at).toLocaleString()}</td>
                       <td>{item.title}</td>
                       <td>
                         <Badge text={item.severity} />

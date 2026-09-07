@@ -6,6 +6,7 @@ import { FiAlertTriangle, FiUnlock, FiShield, FiWifi, FiDownload, FiFileText } f
 import { getReportSummary, type ReportSummary } from "../services/reports";
 import { getIncidents, type Incident } from "../services/incidents";
 import { StatCard } from "../components/StatCard";
+import { parseUtc } from "../utils/time";
 
 function Reports() {
   const [summary, setSummary] = useState<ReportSummary | null>(null);
@@ -77,7 +78,7 @@ function Reports() {
         startY: 105,
         head: [["Time", "Title", "Severity", "Status"]],
         body: incidents.map((item) => [
-          new Date(item.created_at).toLocaleString(),
+          parseUtc(item.created_at).toLocaleString(),
           item.title,
           item.severity,
           item.status,

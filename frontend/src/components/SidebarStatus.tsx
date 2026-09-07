@@ -59,8 +59,8 @@ export function SidebarStatus() {
       <div className="status-row">
         <FiDatabase />
         <span>Database</span>
-        <span className={`status-dot ${status?.database.connected ? "on" : "off"}`} />
-        <span className="status-value">{status?.database.provider ?? "..."}</span>
+        <span className={`status-dot ${status?.database?.connected ? "on" : "off"}`} />
+        <span className="status-value">{status?.database?.provider ?? "..."}</span>
       </div>
       <div className="status-row">
         <FiCpu />

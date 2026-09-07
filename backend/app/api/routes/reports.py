@@ -43,8 +43,9 @@ def report_summary(db: Session = Depends(get_db), user: User = Depends(require_r
 def mitigation_breakdown(db: Session = Depends(get_db), user: User = Depends(require_roles("Admin", "Security Analyst", "Viewer"))):
     """Real counts of mitigation actions grouped by action_type, plus the
     most recent few - powers the Mitigation Actions panel with actual data
-    (this project currently only ever creates "iptables_block" actions, so
-    the breakdown will be a single category until more action types exist)."""
+    (this project currently only ever creates "firewall_block" actions via
+    real Windows Firewall rules, so the breakdown will be a single category
+    until more action types exist)."""
     rows = (
         db.query(MitigationAction.action_type, func.count(MitigationAction.id))
         .group_by(MitigationAction.action_type)

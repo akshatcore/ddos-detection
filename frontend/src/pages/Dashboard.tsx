@@ -28,7 +28,7 @@ import {
   formatBytes,
   SEVERITY_COLORS,
 } from "../utils/attackData";
-import { timeAgo } from "../utils/time";
+import { timeAgo, parseUtc } from "../utils/time";
 
 function buildIncidentsOverTime(incidents: Incident[]) {
   // Groups real incidents by hour of creation - an honest substitute for a
@@ -36,7 +36,7 @@ function buildIncidentsOverTime(incidents: Incident[]) {
   // traffic endpoint. Every value here is derived from real incident data.
   const buckets: Record<string, number> = {};
   for (const incident of incidents) {
-    const hour = new Date(incident.created_at).toLocaleTimeString([], {
+    const hour = parseUtc(incident.created_at).toLocaleTimeString([], {
       hour: "2-digit",
       minute: "2-digit",
     });
@@ -76,7 +76,7 @@ function Dashboard() {
       try {
         const [summaryData, incidentsData, modelsData, mitigationData] = await Promise.all([
           getReportSummary(),
-          getIncidents(),
+          getIncidents(200),
           getModels(),
           getMitigationBreakdown(),
         ]);
@@ -113,7 +113,7 @@ function Dashboard() {
   const severityData = buildSeverityDistribution(incidents);
   const attackers = buildAttackerAggregates(incidents);
   const recentIncidents = [...incidents].sort(
-    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    (a, b) => parseUtc(b.created_at).getTime() - parseUtc(a.created_at).getTime()
   );
   const recentAlerts = recentIncidents.slice(0, 6);
   const recentTable = recentIncidents.slice(0, 8);
@@ -129,7 +129,7 @@ function Dashboard() {
   const firstName = user?.full_name?.split(" ")[0] || user?.email?.split("@")[0] || "Analyst";
 
   const mitigationTotal = mitigations?.total ?? summary?.mitigations ?? 0;
-  const ipBlockedCount = mitigations?.by_type?.iptables_block ?? mitigationTotal;
+  const ipBlockedCount = mitigations?.by_type?.firewall_block ?? mitigationTotal;
 
   return (
     <div>
@@ -210,14 +210,14 @@ function Dashboard() {
               <div className="card-title">
                 <h2>Attack Vector Breakdown</h2>
               </div>
-              <Donut data={attackTypeData} totalLabel="Alerts" />
+              <Donut data={attackTypeData} totalLabel="Recent" />
             </div>
 
             <div className="glass-card">
               <div className="card-title">
                 <h2>Severity Distribution</h2>
               </div>
-              <Donut data={severityData} totalLabel="Alerts" />
+              <Donut data={severityData} totalLabel="Recent" />
             </div>
           </div>
 
@@ -451,7 +451,7 @@ function Dashboard() {
                   ) : (
                     recentTable.map((item) => (
                       <tr key={item.id}>
-                        <td>{new Date(item.created_at).toLocaleString()}</td>
+                        <td>{parseUtc(item.created_at).toLocaleString()}</td>
                         <td>{item.title}</td>
                         <td className="mono-text">{item.flow?.src_ip ?? "—"}</td>
                         <td>

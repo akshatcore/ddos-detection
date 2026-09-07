@@ -17,3 +17,10 @@ export async function updateSettings(payload: Partial<Settings>): Promise<Settin
   const response = await api.put<Settings>("/settings", payload);
   return response.data;
 }
+
+// Admin-only. Wipes incidents/flows/predictions/mitigation actions on the
+// backend - see backend/app/api/routes/settings.py::clear_operational_data
+// for exactly what is and isn't touched.
+export async function clearOperationalData(): Promise<void> {
+  await api.post("/settings/clear-data");
+}

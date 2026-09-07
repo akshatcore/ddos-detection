@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import desc
 from sqlalchemy.orm import Session, joinedload
 
@@ -21,9 +21,23 @@ def _incident_query(db: Session):
 
 
 @router.get("", response_model=list[IncidentRead])
-def list_incidents(db: Session = Depends(get_db), user: User = Depends(require_roles("Admin", "Security Analyst", "Viewer"))):
-    logger.info("User %s requested incident list", user.email)
-    return _incident_query(db).all()
+def list_incidents(
+    limit: int | None = Query(default=None, ge=1, le=5000),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles("Admin", "Security Analyst", "Viewer")),
+):
+    # Optional cap: the Dashboard polls this every 3s but only ever displays
+    # recent activity/rolling breakdowns, not the full lifetime history - as
+    # the incidents table grows over the project's life, fetching and
+    # re-parsing every single row on every poll is real, avoidable load on
+    # both the DB round-trip and the frontend's client-side aggregation.
+    # Omitting `limit` (Incidents/ThreatHunting pages, which need the full
+    # list) preserves the exact previous behavior.
+    query = _incident_query(db)
+    if limit is not None:
+        query = query.limit(limit)
+    logger.info("User %s requested incident list (limit=%s)", user.email, limit)
+    return query.all()
 
 
 @router.post("", response_model=IncidentRead, status_code=status.HTTP_201_CREATED)

@@ -4,6 +4,7 @@ import { FiSearch, FiCrosshair } from "react-icons/fi";
 
 import { getIncidents, mitigateIncident, type Incident } from "../services/incidents";
 import { Badge } from "../components/Badge";
+import { parseUtc } from "../utils/time";
 
 // Note: the backend does not currently expose source-IP or geolocation data
 // through any API endpoint (Flow records containing src_ip are not exposed
@@ -138,7 +139,7 @@ function ThreatHunting() {
                 ) : (
                   filtered.map((item) => (
                     <tr key={item.id}>
-                      <td>{new Date(item.created_at).toLocaleString()}</td>
+                      <td>{parseUtc(item.created_at).toLocaleString()}</td>
                       <td>{item.title}</td>
                       <td>
                         <Badge text={item.severity} />

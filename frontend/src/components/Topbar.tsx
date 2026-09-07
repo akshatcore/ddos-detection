@@ -5,6 +5,7 @@ import { FiSun, FiMoon, FiBell, FiSearch, FiLogOut } from "react-icons/fi";
 import { useTheme } from "../theme/ThemeContext";
 import { getStoredUser, logout } from "../services/auth";
 import { getIncidents, type Incident } from "../services/incidents";
+import { parseUtc } from "../utils/time";
 
 type TopbarProps = {
   title: string;
@@ -161,7 +162,7 @@ export function Topbar({ title, section = "Pages", live = false, onLogout }: Top
                   >
                     <div style={{ fontWeight: 600, color: "var(--text-primary)" }}>{item.title}</div>
                     <div style={{ color: "var(--text-muted)", marginTop: 2 }}>
-                      {new Date(item.created_at).toLocaleString()}
+                      {parseUtc(item.created_at).toLocaleString()}
                     </div>
                   </div>
                 ))

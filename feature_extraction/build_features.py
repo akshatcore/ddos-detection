@@ -37,6 +37,23 @@ RAW_PACKETS_FILE = REPO_ROOT / "data" / "raw_packets.csv"
 OUTPUT_FEATURES_FILE = REPO_ROOT / "data" / "flow_features.csv"
 WINDOW_SECONDS = 5
 
+# BUG FIX (documented for the project report): duration was floored to 1e-6s
+# (1 microsecond) to avoid a divide-by-zero for near-simultaneous packets.
+# In practice this meant a 2-packet burst with (near-)identical timestamps -
+# completely ordinary on any Windows machine (SSDP/UPnP discovery, mDNS,
+# LLMNR, IGMP membership reports - all zero SYN/ACK flags, all under ~10
+# packets) - computed a "rate" of millions of packets/sec, which blew straight
+# through the heuristic flood thresholds in alert_engine.py and got flagged
+# "Critical" even though the ML model correctly called it Benign. Real,
+# diagnosed from data/flow_features.csv during live testing: rows like
+# "224.0.0.252, 2 packets, Flow Duration=1.0us" computing 2,000,000 pkt/s.
+# A rate estimated from 1-2 packets over a sub-millisecond span isn't a
+# meaningful "rate" at all - flooring duration to 100ms instead means a tiny
+# burst estimates as a low, sane rate (2 packets / 0.1s = 20 pkt/s, safely
+# under any threshold) while a genuine flood (hundreds of packets even in a
+# very short real span) still estimates as an obviously extreme rate.
+MIN_FLOW_DURATION_SECONDS = 0.1
+
 # Must match ml/train_baseline.py FEATURE_COLUMNS exactly (order doesn't
 # matter since detect_live.py/ml/service.py select columns by name, but the
 # names must match verbatim).
@@ -75,8 +92,9 @@ def _compute_flow_features(group: pd.DataFrame) -> dict:
     bwd = group[~fwd_mask]
 
     duration_seconds = (group["timestamp"].max() - group["timestamp"].min()).total_seconds()
-    # CICFlowMeter reports Flow Duration in microseconds.
-    flow_duration_us = max(duration_seconds, 1e-6) * 1_000_000
+    # CICFlowMeter reports Flow Duration in microseconds. See
+    # MIN_FLOW_DURATION_SECONDS above for why this floors to 100ms, not 1us.
+    flow_duration_us = max(duration_seconds, MIN_FLOW_DURATION_SECONDS) * 1_000_000
 
     total_bytes = group["packet_size"].sum()
     total_packets = len(group)

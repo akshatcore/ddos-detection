@@ -1,4 +1,5 @@
 import type { Incident } from "../services/incidents";
+import { parseUtc } from "./time";
 
 export const SEVERITY_COLORS: Record<string, string> = {
   low: "#05cd99",
@@ -30,7 +31,11 @@ export const ATTACK_COLORS: Record<string, string> = {
 // The backend bakes the ML predicted_label into the incident title as
 // "<Severity> DDoS Alert (<Label>)" - parsing it here gives a real,
 // data-driven attack-type breakdown instead of a fabricated one.
-export function extractAttackType(title: string): string {
+export function extractAttackType(title: string | null | undefined): string {
+  // Defensive: title is required by the backend schema, but a stale/partial
+  // record (or an in-flight dev reload) should degrade to "Unknown" rather
+  // than crash the whole dashboard.
+  if (!title) return "Unknown";
   const match = title.match(/\(([^)]+)\)\s*$/);
   return match ? match[1] : "Unknown";
 }
@@ -51,7 +56,7 @@ export function buildAttackTypeDistribution(incidents: Incident[]) {
 export function buildSeverityDistribution(incidents: Incident[]) {
   const counts: Record<string, number> = {};
   for (const incident of incidents) {
-    const key = incident.severity.toLowerCase();
+    const key = (incident.severity || "unknown").toLowerCase();
     counts[key] = (counts[key] || 0) + 1;
   }
   return Object.entries(counts).map(([name, value]) => ({
@@ -105,7 +110,7 @@ export function buildAttackerAggregates(incidents: Incident[]): AttackerAggregat
       existing.count += 1;
       existing.totalBytes += incident.flow.byte_count;
       existing.totalPackets += incident.flow.packet_count;
-      if (new Date(incident.created_at) > new Date(existing.lastSeen)) {
+      if (parseUtc(incident.created_at) > parseUtc(existing.lastSeen)) {
         existing.lastSeen = incident.created_at;
       }
       existing.worstSeverity = worseSeverity(existing.worstSeverity, incident.severity);

@@ -47,9 +47,11 @@ export type MitigationAction = {
   created_at: string;
 };
 
-export async function getIncidents(): Promise<Incident[]> {
-  const response = await api.get<Incident[]>("/incidents");
-  return response.data;
+export async function getIncidents(limit?: number): Promise<Incident[]> {
+  const response = await api.get<Incident[]>("/incidents", { params: limit ? { limit } : undefined });
+  // Same defensive guard as getModels() - every page that calls this
+  // immediately iterates the result (.map/.filter/for...of).
+  return Array.isArray(response.data) ? response.data : [];
 }
 
 export async function mitigateIncident(incidentId: number): Promise<MitigationAction[]> {

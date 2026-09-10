@@ -41,6 +41,7 @@ import os
 import json
 import joblib
 from datetime import datetime
+from pathlib import Path
 
 from sklearn.model_selection import train_test_split, cross_val_score, StratifiedKFold
 from sklearn.ensemble import RandomForestClassifier
@@ -54,8 +55,18 @@ from sklearn.metrics import (
 # CONFIG
 # ==============================================================================
 
-DATA_DIR = "../data/cicddos2019"
-MODEL_DIR = "../models"
+
+# BUG FIX (documented for the project report): these were plain relative
+# paths ("../data/cicddos2019"), which only resolve correctly if the script
+# is run with `cd ml` first - running it as `python ml/train_baseline.py`
+# (or via a full path) from the repo root instead resolves "../data" one
+# level ABOVE the actual repo, so every parquet file "isn't found" even
+# though the files are right there. Anchoring both paths to this script's
+# own file location makes it work identically regardless of the caller's
+# current directory - a real, hit-in-testing failure mode, not hypothetical.
+SCRIPT_DIR = Path(__file__).resolve().parent
+DATA_DIR = str(SCRIPT_DIR / ".." / "data" / "cicddos2019")
+MODEL_DIR = str(SCRIPT_DIR / ".." / "models")
 MODEL_VERSION = "v1.0"
 RANDOM_SEED = 42
 
@@ -279,10 +290,10 @@ def train_and_evaluate():
     for name, score in importances:
         print(f"  {name}: {score:.4f}")
 
-    save_model(model, label_encoder, accuracy, precision, recall, f1)
+    save_model(model, label_encoder, accuracy, precision, recall, f1, cv_scores)
 
 
-def save_model(model, label_encoder, accuracy, precision, recall, f1):
+def save_model(model, label_encoder, accuracy, precision, recall, f1, cv_scores=None):
     os.makedirs(MODEL_DIR, exist_ok=True)
     model_path = os.path.join(MODEL_DIR, f"random_forest_{MODEL_VERSION}.joblib")
     metadata_path = os.path.join(MODEL_DIR, f"random_forest_{MODEL_VERSION}_metadata.json")
@@ -308,6 +319,17 @@ def save_model(model, label_encoder, accuracy, precision, recall, f1):
         "test_f1": round(f1, 4),
         "random_seed": RANDOM_SEED,
     }
+    # 5-fold CV was already being computed above as a sanity check before
+    # this final model is even trained, but only ever printed to the
+    # console - persisting it means the report can cite a real
+    # generalization estimate (not just one lucky train/test split) without
+    # a separate script or re-run.
+    if cv_scores is not None:
+        metadata["cv_folds"] = 5
+        metadata["cv_scoring"] = "f1_weighted"
+        metadata["cv_f1_scores"] = [round(float(s), 4) for s in cv_scores]
+        metadata["cv_f1_mean"] = round(float(cv_scores.mean()), 4)
+        metadata["cv_f1_std"] = round(float(cv_scores.std()), 4)
     with open(metadata_path, "w") as f:
         json.dump(metadata, f, indent=2)
 

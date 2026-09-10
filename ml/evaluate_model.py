@@ -14,8 +14,9 @@ bundle (models/random_forest_v1.0.joblib) and reuses train_baseline.py's own
 load_all_pooled() / clean_data() functions plus the same RANDOM_SEED to
 reproduce the identical stratified 80/20 held-out test split that model was
 originally evaluated on - then writes real files: a confusion matrix image
-+ CSV, a feature-importance chart + CSV, and both text and JSON versions of
-the classification report, all under models/evaluation/<version>/.
++ CSV, a feature-importance chart + CSV, both text and JSON versions of the
+classification report, and an inference-latency benchmark (single-row and
+batch), all under models/evaluation/<version>/.
 
 Reusing train_baseline.py's functions (rather than re-implementing the
 load/clean logic here) matters: if that logic ever changes, this script
@@ -32,6 +33,7 @@ HOW TO RUN:
 
 import json
 import os
+import time
 from datetime import datetime
 
 import joblib
@@ -153,6 +155,53 @@ def write_classification_report(y_test, y_pred, class_names, out_dir):
     return text_path, json_path, text_report
 
 
+def benchmark_inference_latency(model, X_test, n_single_row_trials=200):
+    """This project's whole pitch is REAL-TIME detection (live_monitor.py
+    scores every settled flow every ~1s), so "is it fast enough for that"
+    is a real, answerable engineering question - not just "is it accurate."
+    Measures two things a report/viva can both cite:
+      - single-row latency: what live_monitor.py actually pays per flow
+        it scores (one row in, one prediction out) - the realistic case.
+      - batch throughput: how many rows/sec the model can score at once -
+        relevant if this were ever adapted to score a backlog of flows
+        rather than one at a time.
+    Runs a couple of warm-up calls first (excluded from timing) since the
+    very first sklearn predict() call after loading pays a one-time
+    numpy/joblib warm-up cost that isn't representative of steady-state
+    performance.
+    """
+    single_row = X_test.iloc[[0]]
+    for _ in range(3):
+        model.predict(single_row)  # warm-up, not timed
+
+    single_row_times_ms = []
+    for i in range(min(n_single_row_trials, len(X_test))):
+        row = X_test.iloc[[i % len(X_test)]]
+        start = time.perf_counter()
+        model.predict(row)
+        single_row_times_ms.append((time.perf_counter() - start) * 1000)
+
+    single_row_times_ms.sort()
+    mean_ms = sum(single_row_times_ms) / len(single_row_times_ms)
+    p50_ms = single_row_times_ms[len(single_row_times_ms) // 2]
+    p95_ms = single_row_times_ms[int(len(single_row_times_ms) * 0.95)]
+
+    batch_start = time.perf_counter()
+    model.predict(X_test)
+    batch_elapsed_s = time.perf_counter() - batch_start
+    rows_per_second = len(X_test) / batch_elapsed_s if batch_elapsed_s > 0 else float("inf")
+
+    return {
+        "single_row_trials": len(single_row_times_ms),
+        "single_row_mean_ms": round(mean_ms, 4),
+        "single_row_p50_ms": round(p50_ms, 4),
+        "single_row_p95_ms": round(p95_ms, 4),
+        "batch_size": len(X_test),
+        "batch_elapsed_s": round(batch_elapsed_s, 4),
+        "batch_rows_per_second": round(rows_per_second, 1),
+    }
+
+
 def compare_against_saved_metadata(accuracy, precision, recall, f1):
     """Sanity check, not a hard requirement: if the data files on disk have
     changed since the model was last trained (different CICDDoS2019 export,
@@ -220,6 +269,18 @@ def main():
     print("\nChecking for drift against models/random_forest_v1.0_metadata.json...")
     compare_against_saved_metadata(accuracy, precision, recall, f1)
 
+    print("\nBenchmarking inference latency (this is what live_monitor.py pays per flow)...")
+    latency = benchmark_inference_latency(model, X_test)
+    print(
+        f"Single-row: mean={latency['single_row_mean_ms']:.3f}ms | "
+        f"p50={latency['single_row_p50_ms']:.3f}ms | p95={latency['single_row_p95_ms']:.3f}ms "
+        f"(over {latency['single_row_trials']} trials)"
+    )
+    print(
+        f"Batch: {latency['batch_size']} rows in {latency['batch_elapsed_s']:.3f}s "
+        f"= {latency['batch_rows_per_second']:.0f} rows/sec"
+    )
+
     print(f"\nWriting report files to {OUTPUT_DIR}/ ...")
     cm_csv, cm_png = write_confusion_matrix(y_test, y_pred, class_names, OUTPUT_DIR)
     fi_csv, fi_png = write_feature_importances(model, feature_names, OUTPUT_DIR)
@@ -234,6 +295,7 @@ def main():
         "precision_weighted": round(precision, 4),
         "recall_weighted": round(recall, 4),
         "f1_weighted": round(f1, 4),
+        "inference_latency": latency,
         "files": {
             "confusion_matrix_csv": os.path.relpath(cm_csv, MODEL_DIR),
             "confusion_matrix_png": os.path.relpath(cm_png, MODEL_DIR),
